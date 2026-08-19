@@ -23,18 +23,23 @@ cd "$SCRIPT_DIR"
 echo "Checking whether to renew certificate on $(date -R)"
 [ -s letsencrypt/signed.crt ] && openssl x509 -noout -in letsencrypt/signed.crt -checkend 2592000 && exit
 
-# test and find proper Python3 intallation
-python_paths=(
-    "python3"
-    "$(/sbin/getcfg QPython3 Install_Path -f /etc/config/qpkg.conf)/bin/python3"
-    "$(/sbin/getcfg Python3 Install_Path -f /etc/config/qpkg.conf)/python3/bin/python3"
-    "$(/sbin/getcfg Python3 Install_Path -f /etc/config/qpkg.conf)/opt/python3/bin/python3"
-    "$(/sbin/getcfg Entware Install_Path -f /etc/config/qpkg.conf)/bin/python3"
-)
+# test and find proper Python3 installation
+get_qpkg_path() {
+    /sbin/getcfg "$1" Install_Path -f /etc/config/qpkg.conf 2>/dev/null || true
+}
+
+python_paths=("python3")
+for base in \
+    "$(get_qpkg_path QPython3)" \
+    "$(get_qpkg_path Python3)" \
+    "$(get_qpkg_path Entware)"; do
+    [ -n "$base" ] || continue
+    python_paths+=("$base/bin/python3" "$base/python3/bin/python3" "$base/opt/python3/bin/python3")
+done
 
 PYTHON=""
 for path in "${python_paths[@]}"; do
-    if $path -c "import http.server; import ssl" 2> /dev/null; then
+    if "$path" -c "import http.server; import ssl" 2> /dev/null; then
         PYTHON=$path
         break
     fi
